@@ -1,0 +1,27 @@
+{
+  "name": "court-case-manager-api",
+  "version": "1.0.0",
+  "description": "Express API for Court Case Management System",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js",
+    "client": "cd client && npm run dev",
+    "dev:all": "concurrently \"npm run dev\" \"npm run client\"",
+    "seed": "node scripts/seed.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.5.1",
+    "helmet": "^7.2.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^8.2.1",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
