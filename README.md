@@ -124,15 +124,6 @@ Base: `http://localhost:3000/api` · Auth header: `Authorization: Bearer <token>
 
 ---
 
-## Production
-
-```bash
-cd client && npm run build && cd ..
-NODE_ENV=production npm start
-```
-
----
-
 ## Authors
 
 Ummara & Faiza — Advanced Web Technologies, Lab Final
