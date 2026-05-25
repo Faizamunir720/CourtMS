@@ -12,7 +12,7 @@ function fmtSize(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-const categories = ['evidence', 'petition', 'judgment', 'notice', 'report', 'other'];
+const categories = ['petition', 'evidence', 'other'];
 
 export default function LawyerDocuments() {
   const toast = useToast();
@@ -31,7 +31,7 @@ export default function LawyerDocuments() {
       const data = await documentService.getAll({ page: pagination.page, limit: pagination.limit });
       setDocs(data.documents);
       setPagination((p) => ({ ...p, total: data.pagination.total }));
-    } catch (err) { toast?.show(err.message, 'error'); }
+    } catch (err) { toast.show(err.message, 'error'); }
     finally { setLoading(false); }
   }
 
@@ -40,8 +40,16 @@ export default function LawyerDocuments() {
   }, [pagination.page]);
   useEffect(() => { caseService.getAll({ limit: 100 }).then((d) => setCases(d.cases)).catch(() => {}); }, []);
 
+  async function handleDownload(doc) {
+    try {
+      await documentService.downloadFile(doc.id, doc.originalName);
+    } catch (err) {
+      toast.show(err.message, 'error');
+    }
+  }
+
   async function handleUpload() {
-    if (!file || !form.caseId) { toast?.show('File and case are required', 'error'); return; }
+    if (!file || !form.caseId) { toast.show('File and case are required', 'error'); return; }
     setUploading(true);
     try {
       const fd = new FormData();
@@ -50,19 +58,26 @@ export default function LawyerDocuments() {
       fd.append('documentCategory', form.documentCategory);
       fd.append('description', form.description);
       await documentService.upload(fd);
-      toast?.show('Document uploaded', 'success');
+      toast.show('Document uploaded', 'success');
       setUploadModal(false);
       setFile(null);
       load();
-    } catch (err) { toast?.show(err.message, 'error'); }
+    } catch (err) { toast.show(err.message, 'error'); }
     finally { setUploading(false); }
   }
 
   return (
     <div>
       <div className="page-header">
-        <div><h1>Documents</h1><p>Case documents and evidence files</p></div>
+        <div>
+          <h1>Documents</h1>
+          <p>Upload petitions, affidavits, and evidence for cases you represent</p>
+        </div>
         <button className="btn btn-primary" onClick={() => setUploadModal(true)}>+ Upload Document</button>
+      </div>
+
+      <div className="alert alert-info" style={{ marginBottom: 20 }}>
+        <strong>Real court flow:</strong> The lawyer files the plaint, vakalatnama, and evidence here after the citizen/lawyer submits the case. The clerk later adds official court notices and orders.
       </div>
 
       <div className="card">
@@ -71,17 +86,18 @@ export default function LawyerDocuments() {
             <>
               <div className="table-wrapper">
                 <table>
-                  <thead><tr><th>File</th><th>Case</th><th>Category</th><th>Size</th><th>Date</th><th>Actions</th></tr></thead>
+                  <thead><tr><th>File</th><th>Case</th><th>Category</th><th>Uploaded by</th><th>Size</th><th>Date</th><th>Actions</th></tr></thead>
                   <tbody>
-                    {docs.length === 0 && <tr><td colSpan={6}><div className="empty-state"><div className="icon"><Icon name="file" size={48} /></div><h3>No documents</h3></div></td></tr>}
+                    {docs.length === 0 && <tr><td colSpan={7}><div className="empty-state"><div className="icon"><Icon name="file" size={48} /></div><h3>No documents on your cases</h3></div></td></tr>}
                     {docs.map((d) => (
                       <tr key={d.id}>
                         <td><Icon name="file" size={16} /> {d.originalName}</td>
                         <td>{d.case?.caseNumber || '—'}</td>
                         <td><span className="badge badge-scheduled" style={{ textTransform: 'capitalize' }}>{d.documentCategory}</span></td>
+                        <td><span className={`badge badge-${d.uploadedBy?.role || 'lawyer'}`}>{d.uploadedBy?.name || '—'} ({d.uploadedBy?.role})</span></td>
                         <td>{fmtSize(d.fileSize)}</td>
                         <td>{new Date(d.createdAt).toLocaleDateString()}</td>
-                        <td><a className="btn btn-sm btn-secondary" href={documentService.download(d.id)} download>Download</a></td>
+                        <td><button type="button" className="btn btn-sm btn-secondary" onClick={() => handleDownload(d)}>Download</button></td>
                       </tr>
                     ))}
                   </tbody>

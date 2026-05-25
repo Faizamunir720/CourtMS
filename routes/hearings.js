@@ -20,7 +20,7 @@ async function notifyUser(userId, title, message, type, relatedCaseId = null, re
 // GET /api/hearings
 router.get('/', authenticate, async (req, res) => {
   try {
-    const { judgeId, caseId, status, page: pg, limit: lm } = req.query;
+    const { judgeId, caseId, status, search, page: pg, limit: lm } = req.query;
     const page = parseInt(pg) || 1;
     const limit = parseInt(lm) || 10;
 
@@ -32,6 +32,18 @@ router.get('/', authenticate, async (req, res) => {
       filter.judgeId = req.user.id;
     } else if (judgeId && mongoose.Types.ObjectId.isValid(judgeId)) {
       filter.judgeId = judgeId;
+    }
+
+    const searchTrim = search && String(search).trim();
+    if (searchTrim) {
+      const re = { $regex: searchTrim, $options: 'i' };
+      const matchingCases = await Case.find({
+        $or: [{ caseNumber: re }, { title: re }, { applicant: re }, { respondent: re }],
+      }).select('_id');
+      const caseIds = matchingCases.map((c) => c._id);
+      const searchOr = [{ location: re }];
+      if (caseIds.length) searchOr.push({ caseId: { $in: caseIds } });
+      filter.$or = searchOr;
     }
 
     const total = await Hearing.countDocuments(filter);
@@ -64,7 +76,7 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // POST /api/hearings
-router.post('/', authenticate, authorize('admin', 'judge', 'clerk'), async (req, res) => {
+router.post('/', authenticate, authorize('clerk'), async (req, res) => {
   try {
     const { caseId, hearingDate, hearingTime, location, description, judgeId } = req.body;
 
@@ -84,6 +96,9 @@ router.post('/', authenticate, authorize('admin', 'judge', 'clerk'), async (req,
     const c = await Case.findById(caseId);
     if (!c) {
       return res.status(404).json({ error: 'Case not found' });
+    }
+    if (!['Registered', 'Ongoing', 'Adjourned', 'Hearing Scheduled'].includes(c.status)) {
+      return res.status(400).json({ error: 'Case must be registered before scheduling a hearing' });
     }
 
     const judge = await User.findById(judgeId);
@@ -111,6 +126,10 @@ router.post('/', authenticate, authorize('admin', 'judge', 'clerk'), async (req,
       status: 'Scheduled',
     });
 
+    c.assignedJudgeId = judgeId;
+    c.status = 'Hearing Scheduled';
+    await c.save();
+
     createAuditLog({
       userId: req.user.id,
       userEmail: req.user.email,
@@ -123,7 +142,12 @@ router.post('/', authenticate, authorize('admin', 'judge', 'clerk'), async (req,
     });
 
     await notifyUser(judgeId, 'Hearing Scheduled', `A hearing for case ${c.caseNumber} has been scheduled on ${hearingDate} at ${hearingTime}`, 'hearing_scheduled', caseId, hearing._id);
-    await notifyUser(c.lawyerId, 'Hearing Scheduled', `A hearing for your case ${c.caseNumber} has been scheduled on ${hearingDate} at ${hearingTime}`, 'hearing_scheduled', caseId, hearing._id);
+    if (c.lawyerId) {
+      await notifyUser(c.lawyerId, 'Hearing Scheduled', `A hearing for your case ${c.caseNumber} has been scheduled on ${hearingDate} at ${hearingTime}`, 'hearing_scheduled', caseId, hearing._id);
+    }
+    if (c.citizenId) {
+      await notifyUser(c.citizenId, 'Hearing Scheduled', `Your case ${c.caseNumber} hearing is on ${hearingDate} at ${hearingTime} — ${location}`, 'hearing_scheduled', caseId, hearing._id);
+    }
 
     res.status(201).json({
       message: 'Hearing scheduled successfully',
@@ -178,7 +202,7 @@ router.get('/:hearingId', authenticate, async (req, res) => {
 });
 
 // PUT /api/hearings/:hearingId
-router.put('/:hearingId', authenticate, authorize('admin', 'clerk'), async (req, res) => {
+router.put('/:hearingId', authenticate, authorize('clerk'), async (req, res) => {
   try {
     const { hearingId } = req.params;
     if (!mongoose.Types.ObjectId.isValid(hearingId)) {
@@ -261,11 +285,16 @@ router.put('/:hearingId/outcome', authenticate, authorize('judge'), async (req, 
       ipAddress: req.ip,
     });
 
-    if (status === 'Completed') {
-      await Case.findByIdAndUpdate(hearing.caseId, { status: 'Closed' });
-      const c = hearing.caseId;
-      if (c) {
-        await notifyUser(c.lawyerId, 'Case Closed', `Your case ${c.caseNumber} has been closed after a completed hearing`, 'case_closed', c._id, hearing._id);
+    const c = await Case.findById(hearing.caseId);
+    if (c) {
+      if (status === 'Completed') {
+        c.status = 'Closed';
+        await c.save();
+        if (c.lawyerId) await notifyUser(c.lawyerId, 'Case Closed', `Your case ${c.caseNumber} has been decided and closed`, 'case_closed', c._id, hearing._id);
+        if (c.citizenId) await notifyUser(c.citizenId, 'Case Closed', `Your case ${c.caseNumber} has been decided and closed`, 'case_closed', c._id, hearing._id);
+      } else if (status === 'Adjourned' || status === 'Postponed') {
+        c.status = 'Adjourned';
+        await c.save();
       }
     }
 

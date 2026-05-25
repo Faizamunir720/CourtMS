@@ -35,7 +35,7 @@ export default function AdminAuditLogs() {
       const data = await auditService.getAll(params);
       setLogs(data.logs);
       setPagination((p) => ({ ...p, total: data.pagination.total }));
-    } catch (err) { toast?.show(err.message, 'error'); }
+    } catch (err) { toast.show(err.message, 'error'); }
     finally { setLoading(false); }
   }
 

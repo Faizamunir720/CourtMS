@@ -23,7 +23,7 @@ export default function LawyerHearings() {
       const data = await hearingService.getAll(params);
       setHearings(data.hearings);
       setPagination((p) => ({ ...p, total: data.pagination.total }));
-    } catch (err) { toast?.show(err.message, 'error'); }
+    } catch (err) { toast.show(err.message, 'error'); }
     finally { setLoading(false); }
   }
 

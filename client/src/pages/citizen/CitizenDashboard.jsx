@@ -26,20 +26,20 @@ export default function CitizenDashboard() {
 
   if (loading) return <LoadingSpinner text="Loading…" />;
 
-  const pending = cases.filter((c) => c.status === 'Pending').length;
-  const ongoing = cases.filter((c) => c.status === 'Ongoing').length;
+  const submitted = cases.filter((c) => c.status === 'Submitted').length;
+  const active = cases.filter((c) => ['Registered', 'Hearing Scheduled', 'Ongoing', 'Adjourned'].includes(c.status)).length;
   const closed = cases.filter((c) => c.status === 'Closed').length;
 
   return (
     <div>
       <div className="page-header">
-        <div><h1>Welcome, {user?.name}</h1><p>Track your legal cases and stay informed</p></div>
+        <div><h1>Welcome, {user ? user.name : ''}</h1><p>Track your legal cases and stay informed</p></div>
       </div>
 
       <div className="stat-grid">
         <StatCard icon="folder" label="Total Cases" value={cases.length} color="blue" />
-        <StatCard icon="pin" label="Pending" value={pending} color="amber" />
-        <StatCard icon="refresh" label="Ongoing" value={ongoing} color="cyan" />
+        <StatCard icon="pin" label="Submitted" value={submitted} color="amber" />
+        <StatCard icon="refresh" label="Active" value={active} color="cyan" />
         <StatCard icon="check" label="Closed" value={closed} color="green" />
         <StatCard icon="bell" label="Unread Notifications" value={unread} color="purple" />
       </div>

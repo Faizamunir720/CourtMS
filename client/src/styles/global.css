@@ -235,7 +235,11 @@ tbody tr:hover { background: var(--gray-50); }
 /* ── Badges / Status ── */
 .badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; }
 .badge-pending { background: var(--warning-bg); color: var(--warning); }
+.badge-submitted { background: var(--warning-bg); color: var(--warning); }
+.badge-registered { background: #e0e7ff; color: #4338ca; }
+.badge-hearing_scheduled { background: var(--info-bg); color: var(--info); }
 .badge-ongoing { background: var(--info-bg); color: var(--info); }
+.badge-adjourned { background: var(--warning-bg); color: var(--warning); }
 .badge-closed { background: var(--success-bg); color: var(--success); }
 .badge-scheduled { background: var(--info-bg); color: var(--info); }
 .badge-completed { background: var(--success-bg); color: var(--success); }
@@ -250,6 +254,10 @@ tbody tr:hover { background: var(--gray-50); }
 .badge-under_review { background: var(--info-bg); color: var(--info); }
 .badge-resolved { background: var(--success-bg); color: var(--success); }
 .badge-dismissed { background: var(--gray-200); color: var(--gray-600); }
+.badge-cat-scheduling { background: var(--info-bg); color: var(--info); }
+.badge-cat-documents { background: #e0e7ff; color: #4338ca; }
+.badge-cat-portal { background: #ede9fe; color: #7c3aed; }
+.badge-cat-other { background: var(--warning-bg); color: var(--warning); }
 
 /* ── Search / Filter bar ── */
 .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
@@ -289,7 +297,7 @@ tbody tr:hover { background: var(--gray-50); }
 .modal-header h3 { font-size: 16px; font-weight: 600; }
 .modal-close { color: var(--gray-400); font-size: 20px; padding: 2px; line-height: 1; }
 .modal-close:hover { color: var(--gray-700); }
-.modal-body { padding: 20px 24px; }
+.modal-body { padding: 20px 24px; max-height: min(70vh, 640px); overflow-y: auto; }
 .modal-footer { padding: 16px 24px; border-top: 1px solid var(--gray-200); display: flex; justify-content: flex-end; gap: 10px; }
 
 @keyframes modalIn { from { opacity: 0; transform: scale(.96) translateY(-8px); } to { opacity: 1; transform: none; } }
@@ -422,6 +430,33 @@ tbody tr:hover { background: var(--gray-50); }
 .tab-btn { padding: 10px 18px; font-size: 13.5px; font-weight: 500; color: var(--gray-500); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all var(--transition); }
 .tab-btn:hover { color: var(--gray-800); }
 .tab-btn.active { color: var(--accent); border-color: var(--accent); }
+
+/* ── Clerk case registration UX ── */
+.register-help-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 20px; }
+.register-help-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 14px 16px; font-size: 13px; }
+.register-help-card strong { display: block; margin-bottom: 6px; color: var(--navy-dark); }
+.register-help-card p { color: var(--gray-600); margin: 0; line-height: 1.45; }
+.text-pro-se { color: var(--forest-mid); font-weight: 600; }
+.register-modal-body { display: flex; flex-direction: column; gap: 20px; }
+.register-summary { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 16px; }
+.register-summary h3 { font-size: 16px; margin-bottom: 12px; color: var(--navy-dark); }
+.register-summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
+.register-summary-grid label { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--gray-500); margin-bottom: 4px; }
+.register-summary-grid span { font-size: 14px; color: var(--gray-800); }
+.register-summary-grid small { display: block; font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+.register-step { border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 16px; }
+.register-step-head { display: flex; gap: 12px; margin-bottom: 14px; align-items: flex-start; }
+.register-step-head p { margin: 4px 0 0; font-size: 12.5px; color: var(--gray-600); }
+.register-step-num { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--white); font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.representation-panel { display: flex; flex-direction: column; gap: 10px; }
+.choice-row { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); cursor: pointer; background: var(--white); }
+.choice-row:hover { border-color: var(--accent); background: var(--accent-muted); }
+.choice-row input { margin-top: 3px; flex-shrink: 0; }
+.choice-row span { font-size: 13.5px; color: var(--gray-800); line-height: 1.4; }
+.counsel-lock-box { display: flex; gap: 12px; align-items: flex-start; padding: 14px; background: var(--info-bg); border: 1px solid var(--info); border-radius: var(--radius-sm); margin-bottom: 6px; }
+.counsel-lock-box strong { display: block; font-size: 14px; color: var(--navy-dark); }
+.counsel-lock-box p { margin: 4px 0 0; font-size: 13px; color: var(--gray-700); }
+.form-hint { font-size: 12px; color: var(--gray-500); margin-top: 6px; line-height: 1.4; }
 
 /* ── Responsive ── */
 @media (max-width: 768px) {

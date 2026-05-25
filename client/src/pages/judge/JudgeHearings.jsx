@@ -28,7 +28,7 @@ export default function JudgeHearings() {
       const data = await hearingService.getAll(params);
       setHearings(data.hearings);
       setPagination((p) => ({ ...p, total: data.pagination.total }));
-    } catch (err) { toast?.show(err.message, 'error'); }
+    } catch (err) { toast.show(err.message, 'error'); }
     finally { setLoading(false); }
   }
 
@@ -37,14 +37,14 @@ export default function JudgeHearings() {
   }, [pagination.page, filters]);
 
   async function handleOutcome() {
-    if (!outcomeForm.outcome) { toast?.show('Outcome is required', 'error'); return; }
+    if (!outcomeForm.outcome) { toast.show('Outcome is required', 'error'); return; }
     setSaving(true);
     try {
       await hearingService.recordOutcome(selected.id, outcomeForm);
-      toast?.show('Outcome recorded successfully', 'success');
+      toast.show('Outcome recorded successfully', 'success');
       setOutcomeModal(false);
       load();
-    } catch (err) { toast?.show(err.message, 'error'); }
+    } catch (err) { toast.show(err.message, 'error'); }
     finally { setSaving(false); }
   }
 

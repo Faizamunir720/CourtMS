@@ -7,9 +7,11 @@ import LoginPage from './pages/public/LoginPage';
 import RegisterPage from './pages/public/RegisterPage';
 
 import AdminLayout from './layouts/AdminLayout';
-import AdminDashboard from './pages/admin/AdminDashboard';
+import StaffDashboard from './components/StaffDashboard';
+import AdminOnlyRoute from './components/AdminOnlyRoute';
 import AdminUsers from './pages/admin/AdminUsers';
-import AdminCases from './pages/admin/AdminCases';
+import ClerkCases from './pages/clerk/ClerkCases';
+import ClerkOnlyRoute from './components/ClerkOnlyRoute';
 import AdminHearings from './pages/admin/AdminHearings';
 import AdminDocuments from './pages/admin/AdminDocuments';
 import AdminAnalytics from './pages/admin/AdminAnalytics';
@@ -22,6 +24,7 @@ import LawyerDashboard from './pages/lawyer/LawyerDashboard';
 import LawyerCases from './pages/lawyer/LawyerCases';
 import LawyerHearings from './pages/lawyer/LawyerHearings';
 import LawyerDocuments from './pages/lawyer/LawyerDocuments';
+import LawyerComplaints from './pages/lawyer/LawyerComplaints';
 import LawyerNotifications from './pages/lawyer/LawyerNotifications';
 
 import JudgeLayout from './layouts/JudgeLayout';
@@ -67,15 +70,15 @@ export default function App() {
 
       <Route path="/admin" element={<ProtectedRoute roles={['admin', 'clerk']}><AdminLayout /></ProtectedRoute>}>
         <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="dashboard" element={<AdminDashboard />} />
-        <Route path="users" element={<AdminUsers />} />
-        <Route path="cases" element={<AdminCases />} />
-        <Route path="hearings" element={<AdminHearings />} />
-        <Route path="documents" element={<AdminDocuments />} />
-        <Route path="analytics" element={<AdminAnalytics />} />
+        <Route path="dashboard" element={<StaffDashboard />} />
+        <Route path="cases" element={<ClerkOnlyRoute><ClerkCases /></ClerkOnlyRoute>} />
+        <Route path="hearings" element={<ClerkOnlyRoute><AdminHearings /></ClerkOnlyRoute>} />
+        <Route path="documents" element={<ClerkOnlyRoute><AdminDocuments /></ClerkOnlyRoute>} />
         <Route path="notifications" element={<AdminNotifications />} />
-        <Route path="audit-logs" element={<AdminAuditLogs />} />
         <Route path="complaints" element={<AdminComplaints />} />
+        <Route path="users" element={<AdminOnlyRoute><AdminUsers /></AdminOnlyRoute>} />
+        <Route path="analytics" element={<AdminOnlyRoute><AdminAnalytics /></AdminOnlyRoute>} />
+        <Route path="audit-logs" element={<AdminOnlyRoute><AdminAuditLogs /></AdminOnlyRoute>} />
       </Route>
 
       <Route path="/lawyer" element={<ProtectedRoute roles={['lawyer']}><LawyerLayout /></ProtectedRoute>}>
@@ -84,6 +87,7 @@ export default function App() {
         <Route path="cases" element={<LawyerCases />} />
         <Route path="hearings" element={<LawyerHearings />} />
         <Route path="documents" element={<LawyerDocuments />} />
+        <Route path="complaints" element={<LawyerComplaints />} />
         <Route path="notifications" element={<LawyerNotifications />} />
       </Route>
 

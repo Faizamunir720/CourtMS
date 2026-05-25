@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { userService } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -7,19 +8,30 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  function clearSession() {
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+  }
+
   useEffect(() => {
     const savedToken = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
-    if (savedToken && savedUser) {
-      try {
-        setToken(savedToken);
-        setUser(JSON.parse(savedUser));
-      } catch {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-      }
+    if (!savedToken) {
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+    setToken(savedToken);
+    userService.getMe()
+      .then((data) => {
+        setUser(data);
+        localStorage.setItem('user', JSON.stringify(data));
+      })
+      .catch(() => {
+        clearSession();
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   function login(userData, accessToken, refreshToken) {
@@ -31,11 +43,7 @@ export function AuthProvider({ children }) {
   }
 
   function logout() {
-    setUser(null);
-    setToken(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
+    clearSession();
   }
 
   function updateUser(updated) {
@@ -51,6 +59,7 @@ export function AuthProvider({ children }) {
   );
 }
 
+/** Lab pattern: useContext(AuthContext) to read user and login/logout */
 export function useAuth() {
   return useContext(AuthContext);
 }

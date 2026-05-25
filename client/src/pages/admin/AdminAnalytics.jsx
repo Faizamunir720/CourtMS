@@ -10,23 +10,46 @@ export default function AdminAnalytics() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([analyticsService.getOverview(), analyticsService.getJudgeWorkload()])
-      .then(([ov, wl]) => { setOverview(ov); setWorkload(wl.workload || []); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    setLoading(true);
+    analyticsService.getOverview()
+      .then(function (data) {
+        setOverview(data);
+        return analyticsService.getJudgeWorkload();
+      })
+      .then(function (wlData) {
+        if (wlData && wlData.workload) {
+          setWorkload(wlData.workload);
+        }
+        setLoading(false);
+      })
+      .catch(function () {
+        setLoading(false);
+      });
   }, []);
 
   if (loading) return <LoadingSpinner text="Loading analytics…" />;
 
-  const casesByType = overview?.casesByType?.map((item) => ({
-    label: item.type,
-    count: item.count,
-  })) || [];
+  let casesByType = [];
+  let casesPerMonth = [];
+  if (overview && overview.casesByType) {
+    casesByType = overview.casesByType.map(function (item) {
+      return { label: item.type, count: item.count };
+    });
+  }
+  if (overview && overview.casesPerMonth) {
+    casesPerMonth = overview.casesPerMonth.map(function (item) {
+      return { label: item.label, count: item.count };
+    });
+  }
 
-  const casesPerMonth = overview?.casesPerMonth?.map((item) => ({
-    label: item.label,
-    count: item.count,
-  })) || [];
+  const caseStatusChart = overview ? [
+    { label: 'Submitted', count: overview.cases.submitted },
+    { label: 'Registered', count: overview.cases.registered },
+    { label: 'Hearing Scheduled', count: overview.cases.hearingScheduled },
+    { label: 'Ongoing', count: overview.cases.ongoing },
+    { label: 'Adjourned', count: overview.cases.adjourned },
+    { label: 'Closed', count: overview.cases.closed },
+  ] : [];
 
   const userDistribution = overview ? [
     { label: 'Lawyers', count: overview.users.lawyers },
@@ -34,24 +57,45 @@ export default function AdminAnalytics() {
     { label: 'Citizens', count: overview.users.citizens },
   ] : [];
 
+  const c = overview && overview.cases ? overview.cases : {};
+
   return (
     <div>
       <div className="page-header">
-        <div><h1>Analytics & Reports</h1><p>Insights and statistics for the court system</p></div>
+        <div>
+          <h1>Analytics & Reports</h1>
+          <p>Read-only statistics for monitoring the court system</p>
+        </div>
+      </div>
+
+      <div className="alert alert-info" style={{ marginBottom: 20 }}>
+        These reports are for monitoring only. Case registration and hearings are managed by clerks.
       </div>
 
       {overview && (
         <>
+          <h3 style={{ fontSize: 14, color: 'var(--gray-600)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Case statistics</h3>
           <div className="stat-grid">
-            <StatCard icon="folder" label="Total Cases" value={overview.cases.total} color="blue" />
-            <StatCard icon="pin" label="Pending" value={overview.cases.pending} color="amber" />
-            <StatCard icon="refresh" label="Ongoing" value={overview.cases.ongoing} color="cyan" />
-            <StatCard icon="check" label="Closed" value={overview.cases.closed} color="green" />
+            <StatCard icon="folder" label="Total Cases" value={c.total} color="blue" />
+            <StatCard icon="pin" label="Submitted" value={c.submitted} color="amber" />
+            <StatCard icon="folder" label="Registered" value={c.registered} color="purple" />
+            <StatCard icon="courthouse" label="Hearing Scheduled" value={c.hearingScheduled} color="cyan" />
+            <StatCard icon="refresh" label="Ongoing" value={c.ongoing} color="cyan" />
+            <StatCard icon="pin" label="Adjourned" value={c.adjourned} color="amber" />
+            <StatCard icon="check" label="Closed" value={c.closed} color="green" />
             <StatCard icon="courthouse" label="Hearings This Month" value={overview.hearingsThisMonth} color="purple" />
             <StatCard icon="file" label="Documents" value={overview.totalDocuments} color="blue" />
           </div>
 
-          <div className="charts-grid">
+          <h3 style={{ fontSize: 14, color: 'var(--gray-600)', margin: '24px 0 12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>User statistics</h3>
+          <div className="stat-grid">
+            <StatCard icon="users" label="Total Users" value={overview.users.total} color="blue" />
+            <StatCard icon="scales" label="Lawyers" value={overview.users.lawyers} color="cyan" />
+            <StatCard icon="scales" label="Judges" value={overview.users.judges} color="amber" />
+            <StatCard icon="users" label="Citizens" value={overview.users.citizens} color="green" />
+          </div>
+
+          <div className="charts-grid" style={{ marginTop: 24 }}>
             <div className="card">
               <div className="card-header"><h3>Cases by Type</h3></div>
               <div className="card-body">
@@ -67,10 +111,19 @@ export default function AdminAnalytics() {
             </div>
           </div>
 
-          <div className="card" style={{ marginTop: 20 }}>
-            <div className="card-header"><h3>User Distribution</h3></div>
-            <div className="card-body">
-              <SimpleBarChart data={userDistribution} labelKey="label" valueKey="count" barColor="var(--info)" />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginTop: 20 }}>
+            <div className="card">
+              <div className="card-header"><h3>Cases by Status</h3></div>
+              <div className="card-body">
+                <SimpleBarChart data={caseStatusChart} labelKey="label" valueKey="count" barColor="var(--forest-mid)" />
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="card-header"><h3>User Distribution</h3></div>
+              <div className="card-body">
+                <SimpleBarChart data={userDistribution} labelKey="label" valueKey="count" barColor="var(--info)" />
+              </div>
             </div>
           </div>
         </>
@@ -82,7 +135,15 @@ export default function AdminAnalytics() {
           <div className="card-body" style={{ padding: 0 }}>
             <div className="table-wrapper">
               <table>
-                <thead><tr><th>Judge</th><th>Email</th><th>Active Cases</th><th>Scheduled Hearings</th><th>Completed Hearings</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th>Judge</th>
+                    <th>Email</th>
+                    <th>Active Cases</th>
+                    <th>Scheduled Hearings</th>
+                    <th>Completed Hearings</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {workload.map((w) => (
                     <tr key={w.judge.id}>

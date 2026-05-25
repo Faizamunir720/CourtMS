@@ -1,23 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
-import Icon from '../components/Icon';
+import React, { useState, useEffect } from 'react';
+import Icon from './Icon';
 import { notificationService } from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 function timeAgo(date) {
   const diff = Math.floor((Date.now() - new Date(date)) / 1000);
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
+  if (diff < 60) return diff + 's ago';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  return Math.floor(diff / 86400) + 'd ago';
 }
 
 function getNotifPath(user) {
   if (!user) return '/';
-  const r = user.role;
-  if (r === 'admin' || r === 'clerk') return '/admin/notifications';
-  if (r === 'lawyer') return '/lawyer/notifications';
-  if (r === 'judge') return '/judge/notifications';
+  if (user.role === 'admin' || user.role === 'clerk') return '/admin/notifications';
+  if (user.role === 'lawyer') return '/lawyer/notifications';
+  if (user.role === 'judge') return '/judge/notifications';
   return '/citizen/notifications';
 }
 
@@ -26,7 +25,6 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unread, setUnread] = useState(0);
-  const ref = useRef(null);
   const navigate = useNavigate();
 
   async function fetchNotifs() {
@@ -34,21 +32,17 @@ export default function NotificationBell() {
       const data = await notificationService.getAll({ limit: 8 });
       setNotifications(data.notifications || []);
       setUnread(data.unreadCount || 0);
-    } catch {}
+    } catch (err) {
+      console.log(err);
+    }
   }
 
   useEffect(() => {
     fetchNotifs();
     const interval = setInterval(fetchNotifs, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    function handleClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    return function cleanup() {
+      clearInterval(interval);
+    };
   }, []);
 
   async function handleMarkRead(id, e) {
@@ -56,28 +50,32 @@ export default function NotificationBell() {
     try {
       await notificationService.markRead(id);
       fetchNotifs();
-    } catch {}
+    } catch (err) {
+      console.log(err);
+    }
   }
 
   async function handleMarkAll() {
     try {
       await notificationService.markAllRead();
       fetchNotifs();
-    } catch {}
+    } catch (err) {
+      console.log(err);
+    }
   }
 
   return (
-    <div className="notif-bell" ref={ref}>
-      <button className="notif-btn" onClick={() => setOpen(!open)}>
+    <div className="notif-bell">
+      <button className="notif-btn" type="button" onClick={() => setOpen(!open)}>
         <Icon name="bell" size={18} />
         {unread > 0 && <span className="notif-badge">{unread > 9 ? '9+' : unread}</span>}
       </button>
       {open && (
         <div className="notif-dropdown">
           <div className="notif-dropdown-header">
-            <h4>Notifications {unread > 0 && `(${unread})`}</h4>
+            <h4>Notifications {unread > 0 ? '(' + unread + ')' : ''}</h4>
             {unread > 0 && (
-              <button className="btn btn-sm btn-secondary" onClick={handleMarkAll}>Mark all read</button>
+              <button className="btn btn-sm btn-secondary" type="button" onClick={handleMarkAll}>Mark all read</button>
             )}
           </div>
           {notifications.length === 0 ? (
@@ -86,7 +84,7 @@ export default function NotificationBell() {
             notifications.map((n) => (
               <div
                 key={n.id}
-                className={`notif-item ${!n.isRead ? 'unread' : ''}`}
+                className={'notif-item' + (!n.isRead ? ' unread' : '')}
                 onClick={(e) => handleMarkRead(n.id, e)}
               >
                 <div className="notif-item-title">{n.title}</div>
@@ -98,6 +96,7 @@ export default function NotificationBell() {
           <div style={{ padding: '10px 16px', borderTop: '1px solid var(--gray-200)', textAlign: 'center' }}>
             <button
               className="btn btn-sm btn-secondary"
+              type="button"
               style={{ width: '100%' }}
               onClick={() => { setOpen(false); navigate(getNotifPath(user)); }}
             >

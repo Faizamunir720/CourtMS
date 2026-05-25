@@ -27,6 +27,11 @@ export function ToastProvider({ children }) {
   );
 }
 
+/** Same idea as lab: useContext to read ToastContext value */
 export function useToast() {
-  return useContext(ToastContext);
+  const ctx = useContext(ToastContext);
+  if (!ctx) {
+    return { show: function () {} };
+  }
+  return ctx;
 }

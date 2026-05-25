@@ -9,7 +9,7 @@ import { SERVICE_CATEGORIES, categoryLabel } from '../../constants/serviceReques
 
 const emptyForm = { category: 'scheduling', subject: '', description: '', caseId: '' };
 
-export default function CitizenComplaints() {
+export default function LawyerComplaints() {
   const toast = useToast();
   const [complaints, setComplaints] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, total: 0, limit: 10 });
@@ -75,13 +75,13 @@ export default function CitizenComplaints() {
       <div className="page-header">
         <div>
           <h1>Service Requests</h1>
-          <p>Ask the registry or court administration about your case or the portal</p>
+          <p>Registry and administration inquiries about your cases or the portal</p>
         </div>
         <button type="button" className="btn btn-primary" onClick={() => setCreateModal(true)}>+ New Request</button>
       </div>
 
       <div className="alert alert-info" style={{ marginBottom: 16 }}>
-        Choose the right <strong>category</strong> so your request goes to registry staff (scheduling/documents) or administration (portal issues).
+        Choose the correct <strong>category</strong> — scheduling/documents go to the registry; portal issues go to administration.
       </div>
 
       <div className="card">
@@ -153,11 +153,7 @@ export default function CitizenComplaints() {
       >
         <div className="form-group">
           <label className="form-label">Category *</label>
-          <select
-            className="form-control"
-            value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value })}
-          >
+          <select className="form-control" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
             {SERVICE_CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>{c.label}</option>
             ))}
@@ -175,22 +171,11 @@ export default function CitizenComplaints() {
         </div>
         <div className="form-group">
           <label className="form-label">Subject *</label>
-          <input
-            className="form-control"
-            value={form.subject}
-            onChange={(e) => setForm({ ...form, subject: e.target.value })}
-            placeholder="Brief summary"
-          />
+          <input className="form-control" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} placeholder="Brief summary" />
         </div>
         <div className="form-group">
           <label className="form-label">Description *</label>
-          <textarea
-            className="form-control"
-            rows={5}
-            value={form.description}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-            placeholder="Describe your request in detail…"
-          />
+          <textarea className="form-control" rows={5} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Describe your request…" />
         </div>
       </Modal>
 
@@ -198,36 +183,16 @@ export default function CitizenComplaints() {
         {selected && (
           <div>
             <div className="info-grid" style={{ marginBottom: 16 }}>
-              <div className="info-item">
-                <label>Category</label>
-                <span>{selected.categoryLabel || categoryLabel(selected.category)}</span>
-              </div>
-              <div className="info-item">
-                <label>Status</label>
-                <span><span className={`badge ${statusColors[selected.status] || 'badge-pending'}`}>{selected.status.replace('_', ' ')}</span></span>
-              </div>
-              <div className="info-item">
-                <label>Submitted</label>
-                <span>{new Date(selected.createdAt).toLocaleDateString()}</span>
-              </div>
-              {selected.case && (
-                <div className="info-item">
-                  <label>Case</label>
-                  <span>{selected.case.caseNumber}</span>
-                </div>
-              )}
+              <div className="info-item"><label>Category</label><span>{selected.categoryLabel || categoryLabel(selected.category)}</span></div>
+              <div className="info-item"><label>Status</label><span><span className={`badge ${statusColors[selected.status]}`}>{selected.status.replace('_', ' ')}</span></span></div>
+              <div className="info-item"><label>Submitted</label><span>{new Date(selected.createdAt).toLocaleDateString()}</span></div>
+              {selected.case && <div className="info-item"><label>Case</label><span>{selected.case.caseNumber}</span></div>}
             </div>
-            <div className="form-group">
-              <label className="form-label">Your Request</label>
-              <p style={{ color: 'var(--gray-700)', fontSize: 13.5 }}>{selected.description}</p>
-            </div>
+            <div className="form-group"><label className="form-label">Your Request</label><p style={{ color: 'var(--gray-700)', fontSize: 13.5 }}>{selected.description}</p></div>
             {selected.response && (
               <div style={{ marginTop: 16, padding: '14px 16px', background: 'var(--success-bg)', borderRadius: 8 }}>
                 <div style={{ fontWeight: 600, marginBottom: 6 }}>Official Response</div>
                 <p style={{ fontSize: 13.5, color: 'var(--gray-700)' }}>{selected.response}</p>
-                {selected.respondedAt && (
-                  <p style={{ fontSize: 12, color: 'var(--gray-400)', marginTop: 6 }}>{new Date(selected.respondedAt).toLocaleDateString()}</p>
-                )}
               </div>
             )}
           </div>

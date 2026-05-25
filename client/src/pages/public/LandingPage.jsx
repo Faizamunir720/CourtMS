@@ -43,10 +43,6 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
-
-      <footer className="landing-footer">
-        <p>© 2025 Court Case Management System. All rights reserved.</p>
-      </footer>
     </div>
   );
 }

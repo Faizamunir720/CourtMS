@@ -1,6 +1,6 @@
 import React from 'react';
 
-/** Simple bar chart: map() + props + CSS (within course scope). */
+/** List chart using map() + props + CSS only (no external chart library). */
 export default function SimpleBarChart({ data, labelKey, valueKey, barColor = 'var(--accent)' }) {
   if (!data || data.length === 0) {
     return <p style={{ color: 'var(--gray-500)', fontSize: 13 }}>No data to display</p>;

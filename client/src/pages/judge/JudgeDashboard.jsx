@@ -16,15 +16,21 @@ export default function JudgeDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      hearingService.getAll({ limit: 5, status: 'Scheduled' }),
-      caseService.getAll({ limit: 5 }),
-      notificationService.getAll({ limit: 1 }),
-    ]).then(([h, c, n]) => {
-      setHearings(h.hearings);
-      setCases(c.cases);
-      setUnread(n.unreadCount || 0);
-    }).catch(() => {}).finally(() => setLoading(false));
+    async function loadDashboard() {
+      setLoading(true);
+      try {
+        const h = await hearingService.getAll({ limit: 5, status: 'Scheduled' });
+        setHearings(h.hearings);
+        const c = await caseService.getAll({ limit: 5 });
+        setCases(c.cases);
+        const n = await notificationService.getAll({ limit: 1 });
+        setUnread(n.unreadCount || 0);
+      } catch (err) {
+        console.log(err);
+      }
+      setLoading(false);
+    }
+    loadDashboard();
   }, []);
 
   if (loading) return <LoadingSpinner text="Loading dashboard…" />;
@@ -36,7 +42,7 @@ export default function JudgeDashboard() {
   return (
     <div>
       <div className="page-header">
-        <div><h1>Welcome, Judge {user?.name}</h1><p>Your hearing schedule and case overview</p></div>
+        <div><h1>Welcome, Judge {user ? user.name : ''}</h1><p>Your hearing schedule and case overview</p></div>
       </div>
 
       <div className="stat-grid">

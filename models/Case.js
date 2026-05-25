@@ -1,5 +1,14 @@
 const mongoose = require('mongoose');
 
+const CASE_STATUSES = [
+  'Submitted',
+  'Registered',
+  'Hearing Scheduled',
+  'Ongoing',
+  'Adjourned',
+  'Closed',
+];
+
 const caseSchema = new mongoose.Schema(
   {
     caseNumber: { type: String, required: true, unique: true, trim: true },
@@ -14,14 +23,14 @@ const caseSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      default: 'Pending',
-      enum: ['Pending', 'Ongoing', 'Closed'],
+      default: 'Submitted',
+      enum: CASE_STATUSES,
     },
     filedDate: { type: Date, required: true },
     lawyerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      default: null,
     },
     assignedJudgeId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -33,8 +42,16 @@ const caseSchema = new mongoose.Schema(
       ref: 'User',
       default: null,
     },
+    /** Who filed the case at submission: citizen (self) or lawyer (for client) */
+    submittedByRole: {
+      type: String,
+      enum: ['citizen', 'lawyer'],
+      default: null,
+    },
   },
   { timestamps: true }
 );
+
+caseSchema.statics.STATUSES = CASE_STATUSES;
 
 module.exports = mongoose.model('Case', caseSchema);

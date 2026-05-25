@@ -54,9 +54,9 @@ export const caseService = {
     return api.get(`/cases?${q}`);
   },
   getById: (id) => api.get(`/cases/${id}`),
-  create: (data) => api.post('/cases', data),
+  submit: (data) => api.post('/cases/submit', data),
+  register: (caseId, data) => api.post(`/cases/${caseId}/register`, data),
   update: (id, data) => api.put(`/cases/${id}`, data),
-  assignJudge: (caseId, judgeId) => api.post(`/cases/${caseId}/assign`, { judgeId }),
   getHearings: (caseId) => api.get(`/cases/${caseId}/hearings`),
 };
 
@@ -77,7 +77,26 @@ export const documentService = {
     return api.get(`/documents?${q}`);
   },
   upload: (formData) => api.upload('/documents', formData),
-  download: (id) => `${BASE_URL}/documents/${id}/download`,
+  /** Download with JWT — plain links return JSON errors without auth. */
+  downloadFile: async (id, filename) => {
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}/documents/${id}/download`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Download failed (${res.status})`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename || 'document';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  },
   delete: (id) => api.delete(`/documents/${id}`),
 };
 

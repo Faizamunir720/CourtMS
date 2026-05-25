@@ -12,7 +12,7 @@ function fmtSize(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-const categories = ['evidence', 'petition', 'judgment', 'notice', 'report', 'other'];
+const categories = ['notice', 'judgment', 'report', 'other'];
 
 export default function AdminDocuments() {
   const toast = useToast();
@@ -31,7 +31,7 @@ export default function AdminDocuments() {
       const data = await documentService.getAll({ page: pagination.page, limit: pagination.limit });
       setDocs(data.documents);
       setPagination((p) => ({ ...p, total: data.pagination.total }));
-    } catch (err) { toast?.show(err.message, 'error'); }
+    } catch (err) { toast.show(err.message, 'error'); }
     finally { setLoading(false); }
   }
 
@@ -41,7 +41,7 @@ export default function AdminDocuments() {
   useEffect(() => { caseService.getAll({ limit: 100 }).then((d) => setCases(d.cases)).catch(() => {}); }, []);
 
   async function handleUpload() {
-    if (!file || !form.caseId) { toast?.show('File and case are required', 'error'); return; }
+    if (!file || !form.caseId) { toast.show('File and case are required', 'error'); return; }
     setUploading(true);
     try {
       const fd = new FormData();
@@ -50,26 +50,41 @@ export default function AdminDocuments() {
       fd.append('documentCategory', form.documentCategory);
       fd.append('description', form.description);
       await documentService.upload(fd);
-      toast?.show('Document uploaded', 'success');
+      toast.show('Document uploaded', 'success');
       setUploadModal(false);
       setFile(null);
       setForm({ caseId: '', documentCategory: 'other', description: '' });
       load();
-    } catch (err) { toast?.show(err.message, 'error'); }
+    } catch (err) { toast.show(err.message, 'error'); }
     finally { setUploading(false); }
+  }
+
+  async function handleDownload(doc) {
+    try {
+      await documentService.downloadFile(doc.id, doc.originalName);
+    } catch (err) {
+      toast.show(err.message, 'error');
+    }
   }
 
   async function handleDelete(id) {
     if (!confirm('Delete this document?')) return;
-    try { await documentService.delete(id); toast?.show('Document deleted', 'success'); load(); }
-    catch (err) { toast?.show(err.message, 'error'); }
+    try { await documentService.delete(id); toast.show('Document deleted', 'success'); load(); }
+    catch (err) { toast.show(err.message, 'error'); }
   }
 
   return (
     <div>
       <div className="page-header">
-        <div><h1>Documents</h1><p>Manage all case documents</p></div>
+        <div>
+          <h1>Documents</h1>
+          <p>Court registry — upload notices, orders, and office reports for any case</p>
+        </div>
         <button className="btn btn-primary" onClick={() => setUploadModal(true)}>+ Upload Document</button>
+      </div>
+
+      <div className="alert alert-info" style={{ marginBottom: 20 }}>
+        <strong>Clerk role:</strong> After hearings, the registry scans and uploads court notices, interim orders, and judgments. Lawyers upload party filings; citizens usually only download copies.
       </div>
 
       <div className="card">
@@ -87,11 +102,11 @@ export default function AdminDocuments() {
                         <td>{d.case?.caseNumber || '—'}</td>
                         <td><span className="badge badge-scheduled" style={{ textTransform: 'capitalize' }}>{d.documentCategory}</span></td>
                         <td>{fmtSize(d.fileSize)}</td>
-                        <td>{d.uploadedBy?.name || '—'}</td>
+                        <td>{d.uploadedBy?.name || '—'} <small style={{ color: 'var(--gray-500)' }}>({d.uploadedBy?.role})</small></td>
                         <td>{new Date(d.createdAt).toLocaleDateString()}</td>
                         <td>
                           <div style={{ display: 'flex', gap: 6 }}>
-                            <a className="btn btn-sm btn-secondary" href={documentService.download(d.id)} download>Download</a>
+                            <button type="button" className="btn btn-sm btn-secondary" onClick={() => handleDownload(d)}>Download</button>
                             <button className="btn btn-sm btn-danger" onClick={() => handleDelete(d.id)}>Delete</button>
                           </div>
                         </td>

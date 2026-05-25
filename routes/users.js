@@ -6,10 +6,17 @@ const { authenticate, authorize } = require('../middlewares/auth');
 
 const router = express.Router();
 
-// GET /api/users (admin only)
-router.get('/', authenticate, authorize('admin', 'clerk'), async (req, res) => {
+// GET /api/users — admin/clerk: all; lawyer: citizens only (for filing cases for clients)
+router.get('/', authenticate, async (req, res) => {
+  if (req.user.role === 'lawyer') {
+    if (req.query.role && req.query.role !== 'citizen') {
+      return res.status(403).json({ error: 'Lawyers may only list citizen accounts' });
+    }
+  } else if (!['admin', 'clerk'].includes(req.user.role)) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
   try {
-    const role = req.query.role;
+    const role = req.user.role === 'lawyer' ? 'citizen' : req.query.role;
     const search = req.query.search;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;

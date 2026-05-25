@@ -13,7 +13,8 @@ export default function AdminHearings() {
   const toast = useToast();
   const [hearings, setHearings] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, total: 0, limit: 10 });
-  const [filters, setFilters] = useState({ status: '' });
+  const [filters, setFilters] = useState({ status: '', search: '' });
+  const [caseSearch, setCaseSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [cases, setCases] = useState([]);
   const [judges, setJudges] = useState([]);
@@ -26,10 +27,11 @@ export default function AdminHearings() {
     try {
       const params = { page: pagination.page, limit: pagination.limit };
       if (filters.status) params.status = filters.status;
+      if (filters.search) params.search = filters.search;
       const data = await hearingService.getAll(params);
       setHearings(data.hearings);
       setPagination((p) => ({ ...p, total: data.pagination.total }));
-    } catch (err) { toast?.show(err.message, 'error'); }
+    } catch (err) { toast.show(err.message, 'error'); }
     finally { setLoading(false); }
   }
 
@@ -37,19 +39,37 @@ export default function AdminHearings() {
     load();
   }, [pagination.page, filters]);
   useEffect(() => {
-    caseService.getAll({ limit: 100 }).then((d) => setCases(d.cases)).catch(() => {});
+    caseService.getAll({ limit: 200 }).then((d) => {
+      const schedulable = d.cases.filter((c) => c.status !== 'Submitted' && c.status !== 'Closed');
+      setCases(schedulable);
+    }).catch(() => {});
     userService.getAll({ role: 'judge', limit: 100 }).then((d) => setJudges(d.users)).catch(() => {});
   }, []);
+
+  function openCreateModal() {
+    setCaseSearch('');
+    setCreateModal(true);
+  }
+
+  const filteredCases = cases.filter((c) => {
+    if (!caseSearch.trim()) return true;
+    const q = caseSearch.trim().toLowerCase();
+    return (
+      (c.caseNumber && c.caseNumber.toLowerCase().includes(q))
+      || (c.title && c.title.toLowerCase().includes(q))
+      || (c.applicant && c.applicant.toLowerCase().includes(q))
+    );
+  });
 
   async function handleCreate() {
     setSaving(true);
     try {
       await hearingService.create(form);
-      toast?.show('Hearing scheduled successfully', 'success');
+      toast.show('Hearing scheduled successfully', 'success');
       setCreateModal(false);
       setForm({ caseId: '', hearingDate: '', hearingTime: '', location: '', description: '', judgeId: '' });
       load();
-    } catch (err) { toast?.show(err.message, 'error'); }
+    } catch (err) { toast.show(err.message, 'error'); }
     finally { setSaving(false); }
   }
 
@@ -57,12 +77,27 @@ export default function AdminHearings() {
     <div>
       <div className="page-header">
         <div><h1>Hearing Management</h1><p>Schedule and manage court hearings</p></div>
-        <button className="btn btn-primary" onClick={() => setCreateModal(true)}>+ Schedule Hearing</button>
+        <button type="button" className="btn btn-primary" onClick={openCreateModal}>+ Schedule Hearing</button>
       </div>
 
       <div className="card">
         <div className="card-body">
           <div className="toolbar">
+            <div style={{ position: 'relative', flex: 1, minWidth: 200 }}>
+              <span className="search-icon-wrap" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }}>
+                <Icon name="search" size={16} />
+              </span>
+              <input
+                className="form-control"
+                placeholder="Search by case number, title, party, or courtroom…"
+                value={filters.search}
+                onChange={(e) => {
+                  setFilters({ ...filters, search: e.target.value });
+                  setPagination((p) => ({ ...p, page: 1 }));
+                }}
+                style={{ paddingLeft: 36 }}
+              />
+            </div>
             <select className="form-control" style={{ minWidth: 160 }} value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
               <option value="">All Statuses</option>
               <option>Scheduled</option><option>Completed</option><option>Adjourned</option><option>Postponed</option>
@@ -96,7 +131,27 @@ export default function AdminHearings() {
 
       <Modal isOpen={createModal} onClose={() => setCreateModal(false)} title="Schedule Hearing" large
         footer={<><button className="btn btn-secondary" onClick={() => setCreateModal(false)}>Cancel</button><button className="btn btn-primary" onClick={handleCreate} disabled={saving}>{saving ? 'Scheduling…' : 'Schedule'}</button></>}>
-        <div className="form-group"><label className="form-label">Case *</label><select className="form-control" value={form.caseId} onChange={(e) => setForm({ ...form, caseId: e.target.value })}><option value="">Select Case</option>{cases.map((c) => <option key={c.id} value={c.id}>{c.caseNumber} — {c.title}</option>)}</select></div>
+        <div className="form-group">
+          <label className="form-label">Case *</label>
+          <input
+            className="form-control"
+            placeholder="Search cases by number, title, or applicant…"
+            value={caseSearch}
+            onChange={(e) => setCaseSearch(e.target.value)}
+            style={{ marginBottom: 8 }}
+          />
+          <select className="form-control" value={form.caseId} onChange={(e) => setForm({ ...form, caseId: e.target.value })}>
+            <option value="">Select case ({filteredCases.length} shown)</option>
+            {filteredCases.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.caseNumber} — {c.title} ({c.status})
+              </option>
+            ))}
+          </select>
+          {filteredCases.length === 0 && (
+            <p className="form-hint">No registered cases match. Register a case first (Submitted cases cannot be scheduled).</p>
+          )}
+        </div>
         <div className="form-group"><label className="form-label">Judge *</label><select className="form-control" value={form.judgeId} onChange={(e) => setForm({ ...form, judgeId: e.target.value })}><option value="">Select Judge</option>{judges.map((j) => <option key={j.id} value={j.id}>{j.name}</option>)}</select></div>
         <div className="form-row">
           <div className="form-group"><label className="form-label">Date *</label><input className="form-control" type="date" value={form.hearingDate} onChange={(e) => setForm({ ...form, hearingDate: e.target.value })} /></div>

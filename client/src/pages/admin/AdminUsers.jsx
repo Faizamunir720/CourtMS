@@ -30,7 +30,7 @@ export default function AdminUsers() {
       setUsers(data.users);
       setPagination((p) => ({ ...p, total: data.pagination.total }));
     } catch (err) {
-      toast?.show(err.message, 'error');
+      toast.show(err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -50,11 +50,11 @@ export default function AdminUsers() {
     setSaving(true);
     try {
       await userService.update(selected.id, editForm);
-      toast?.show('User updated successfully', 'success');
+      toast.show('User updated successfully', 'success');
       setModalOpen(false);
       load();
     } catch (err) {
-      toast?.show(err.message, 'error');
+      toast.show(err.message, 'error');
     } finally {
       setSaving(false);
     }
@@ -64,10 +64,10 @@ export default function AdminUsers() {
     if (!confirm('Delete this user?')) return;
     try {
       await userService.delete(id);
-      toast?.show('User deleted', 'success');
+      toast.show('User deleted', 'success');
       load();
     } catch (err) {
-      toast?.show(err.message, 'error');
+      toast.show(err.message, 'error');
     }
   }
 

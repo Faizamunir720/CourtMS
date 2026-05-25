@@ -8,11 +8,14 @@ const { authenticate, authorize } = require('../middlewares/auth');
 const router = express.Router();
 
 // GET /api/analytics/overview (admin, clerk, judge)
-router.get('/overview', authenticate, authorize('admin', 'clerk', 'judge'), async (req, res) => {
+router.get('/overview', authenticate, authorize('admin', 'judge'), async (req, res) => {
   try {
     const totalCases = await Case.countDocuments();
-    const pendingCases = await Case.countDocuments({ status: 'Pending' });
+    const submittedCases = await Case.countDocuments({ status: 'Submitted' });
+    const registeredCases = await Case.countDocuments({ status: 'Registered' });
+    const hearingScheduledCases = await Case.countDocuments({ status: 'Hearing Scheduled' });
     const ongoingCases = await Case.countDocuments({ status: 'Ongoing' });
+    const adjournedCases = await Case.countDocuments({ status: 'Adjourned' });
     const closedCases = await Case.countDocuments({ status: 'Closed' });
 
     const now = new Date();
@@ -41,7 +44,15 @@ router.get('/overview', authenticate, authorize('admin', 'clerk', 'judge'), asyn
     ]);
 
     res.json({
-      cases: { total: totalCases, pending: pendingCases, ongoing: ongoingCases, closed: closedCases },
+      cases: {
+        total: totalCases,
+        submitted: submittedCases,
+        registered: registeredCases,
+        hearingScheduled: hearingScheduledCases,
+        ongoing: ongoingCases,
+        adjourned: adjournedCases,
+        closed: closedCases,
+      },
       hearingsThisMonth,
       users: { total: totalUsers, lawyers: totalLawyers, judges: totalJudges, citizens: totalCitizens },
       totalDocuments,
@@ -80,7 +91,7 @@ router.get('/judge-workload', authenticate, authorize('admin', 'clerk'), async (
 });
 
 // GET /api/analytics/recent-activity (admin, clerk)
-router.get('/recent-activity', authenticate, authorize('admin', 'clerk', 'judge'), async (req, res) => {
+router.get('/recent-activity', authenticate, authorize('admin', 'judge'), async (req, res) => {
   try {
     const recentCases = await Case.find()
       .populate('lawyerId', 'name')

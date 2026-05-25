@@ -12,6 +12,36 @@ const { createAuditLog } = require('../middlewares/auditLogger');
 const router = express.Router();
 
 const uploadDir = path.join(__dirname, '..', 'uploads');
+
+async function userCanAccessCase(user, caseId) {
+  const c = await Case.findById(caseId).select('lawyerId citizenId assignedJudgeId');
+  if (!c) return false;
+  if (user.role === 'admin' || user.role === 'clerk') return true;
+  if (user.role === 'lawyer' && c.lawyerId && c.lawyerId.toString() === user.id) return true;
+  if (user.role === 'citizen' && c.citizenId && c.citizenId.toString() === user.id) return true;
+  if (user.role === 'judge' && c.assignedJudgeId && c.assignedJudgeId.toString() === user.id) return true;
+  return false;
+}
+
+const LAWYER_CATEGORIES = ['petition', 'evidence', 'other'];
+const CLERK_CATEGORIES = ['notice', 'judgment', 'report', 'other'];
+const CITIZEN_CATEGORIES = ['evidence', 'other'];
+
+async function caseIdsForUser(user) {
+  if (user.role === 'lawyer') {
+    const rows = await Case.find({ lawyerId: user.id }).select('_id');
+    return rows.map((c) => c._id);
+  }
+  if (user.role === 'citizen') {
+    const rows = await Case.find({ citizenId: user.id }).select('_id');
+    return rows.map((c) => c._id);
+  }
+  if (user.role === 'judge') {
+    const rows = await Case.find({ assignedJudgeId: user.id }).select('_id');
+    return rows.map((c) => c._id);
+  }
+  return null;
+}
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -39,7 +69,7 @@ const upload = multer({
 });
 
 // POST /api/documents
-router.post('/', authenticate, authorize('admin', 'lawyer', 'clerk', 'judge'), upload.single('file'), async (req, res) => {
+router.post('/', authenticate, authorize('lawyer', 'clerk', 'citizen'), upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'File is required' });
@@ -58,6 +88,37 @@ router.post('/', authenticate, authorize('admin', 'lawyer', 'clerk', 'judge'), u
       return res.status(404).json({ error: 'Case not found' });
     }
 
+    if (req.user.role === 'citizen') {
+      if (!c.citizenId || c.citizenId.toString() !== req.user.id) {
+        fs.unlinkSync(req.file.path);
+        return res.status(403).json({ error: 'You can only upload documents for your own cases' });
+      }
+    }
+    if (req.user.role === 'lawyer') {
+      if (!c.lawyerId || c.lawyerId.toString() !== req.user.id) {
+        fs.unlinkSync(req.file.path);
+        return res.status(403).json({ error: 'You can only upload documents for cases you represent' });
+      }
+    }
+
+    const category = documentCategory || 'other';
+    const allowedCats =
+      req.user.role === 'clerk' ? CLERK_CATEGORIES
+        : req.user.role === 'lawyer' ? LAWYER_CATEGORIES
+          : CITIZEN_CATEGORIES;
+    if (!allowedCats.includes(category)) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({
+        error: `Invalid category for ${req.user.role}. Allowed: ${allowedCats.join(', ')}`,
+      });
+    }
+
+    const canAccess = await userCanAccessCase(req.user, caseId);
+    if (!canAccess) {
+      fs.unlinkSync(req.file.path);
+      return res.status(403).json({ error: 'You do not have access to this case' });
+    }
+
     const doc = await Document.create({
       caseId,
       uploadedBy: req.user.id,
@@ -66,7 +127,7 @@ router.post('/', authenticate, authorize('admin', 'lawyer', 'clerk', 'judge'), u
       fileType: req.file.mimetype,
       fileSize: req.file.size,
       filePath: req.file.path,
-      documentCategory: documentCategory || 'other',
+      documentCategory: category,
       description: description || '',
     });
 
@@ -81,11 +142,15 @@ router.post('/', authenticate, authorize('admin', 'lawyer', 'clerk', 'judge'), u
       ipAddress: req.ip,
     });
 
-    if (c.lawyerId && c.lawyerId.toString() !== req.user.id) {
+    const notifyTargets = new Set();
+    if (c.citizenId) notifyTargets.add(c.citizenId.toString());
+    if (c.lawyerId && c.lawyerId.toString() !== req.user.id) notifyTargets.add(c.lawyerId.toString());
+    if (c.assignedJudgeId) notifyTargets.add(c.assignedJudgeId.toString());
+    for (const uid of notifyTargets) {
       await Notification.create({
-        userId: c.lawyerId,
-        title: 'New Document Uploaded',
-        message: `A new document has been uploaded for case ${c.caseNumber}`,
+        userId: uid,
+        title: 'New Document on Case File',
+        message: `${req.user.name} (${req.user.role}) uploaded "${req.file.originalname}" for case ${c.caseNumber}`,
         type: 'document_uploaded',
         relatedCaseId: caseId,
       });
@@ -122,17 +187,33 @@ router.get('/', authenticate, async (req, res) => {
     const limit = parseInt(lm) || 10;
 
     const filter = {};
-    if (caseId && mongoose.Types.ObjectId.isValid(caseId)) filter.caseId = caseId;
-    if (documentCategory) filter.documentCategory = documentCategory;
-    if (req.user.role === 'citizen') {
-      const cases = await Case.find({ citizenId: req.user.id }).select('_id');
-      filter.caseId = { $in: cases.map((c) => c._id) };
+    const allowedCaseIds = await caseIdsForUser(req.user);
+    if (allowedCaseIds) {
+      if (allowedCaseIds.length === 0) {
+        return res.json({ documents: [], pagination: { page, limit, total: 0 } });
+      }
+      if (caseId && mongoose.Types.ObjectId.isValid(caseId)) {
+        const ok = allowedCaseIds.some((id) => id.toString() === caseId);
+        if (!ok) {
+          return res.status(403).json({ error: 'You do not have access to documents for this case' });
+        }
+        filter.caseId = caseId;
+      } else {
+        filter.caseId = { $in: allowedCaseIds };
+      }
+    } else if (caseId && mongoose.Types.ObjectId.isValid(caseId)) {
+      filter.caseId = caseId;
     }
+    if (documentCategory) filter.documentCategory = documentCategory;
 
     const total = await Document.countDocuments(filter);
     const docs = await Document.find(filter)
-      .populate('uploadedBy', 'name role')
-      .populate('caseId', 'caseNumber title')
+      .populate('uploadedBy', 'name role email')
+      .populate({
+        path: 'caseId',
+        select: 'caseNumber title status applicant respondent',
+        populate: { path: 'lawyerId', select: 'name email' },
+      })
       .skip((page - 1) * limit)
       .limit(limit)
       .sort({ createdAt: -1 });
@@ -140,14 +221,22 @@ router.get('/', authenticate, async (req, res) => {
     res.json({
       documents: docs.map((d) => ({
         id: d._id,
-        case: d.caseId ? { id: d.caseId._id, caseNumber: d.caseId.caseNumber, title: d.caseId.title } : null,
+        case: d.caseId ? {
+          id: d.caseId._id,
+          caseNumber: d.caseId.caseNumber,
+          title: d.caseId.title,
+          status: d.caseId.status,
+          applicant: d.caseId.applicant,
+          respondent: d.caseId.respondent,
+          lawyer: d.caseId.lawyerId ? { name: d.caseId.lawyerId.name, email: d.caseId.lawyerId.email } : null,
+        } : null,
         fileName: d.fileName,
         originalName: d.originalName,
         fileType: d.fileType,
         fileSize: d.fileSize,
         documentCategory: d.documentCategory,
         description: d.description,
-        uploadedBy: d.uploadedBy ? { id: d.uploadedBy._id, name: d.uploadedBy.name } : null,
+        uploadedBy: d.uploadedBy ? { id: d.uploadedBy._id, name: d.uploadedBy.name, role: d.uploadedBy.role } : null,
         createdAt: d.createdAt,
       })),
       pagination: { page, limit, total },
@@ -174,6 +263,12 @@ router.get('/:docId/download', authenticate, async (req, res) => {
       return res.status(404).json({ error: 'File not found on server' });
     }
 
+    const allowed = await userCanAccessCase(req.user, doc.caseId);
+    if (!allowed) {
+      return res.status(403).json({ error: 'You do not have access to this document' });
+    }
+
+    res.setHeader('Content-Type', doc.fileType || 'application/octet-stream');
     res.download(doc.filePath, doc.originalName);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -181,7 +276,7 @@ router.get('/:docId/download', authenticate, async (req, res) => {
 });
 
 // DELETE /api/documents/:docId
-router.delete('/:docId', authenticate, authorize('admin', 'clerk'), async (req, res) => {
+router.delete('/:docId', authenticate, authorize('clerk'), async (req, res) => {
   try {
     const { docId } = req.params;
     if (!mongoose.Types.ObjectId.isValid(docId)) {

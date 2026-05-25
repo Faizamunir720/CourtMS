@@ -5,13 +5,27 @@ import StatusBadge from '../../components/StatusBadge';
 import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import { useToast } from '../../components/Toast';
+import { useAuth } from '../../context/AuthContext';
 
 function formatDate(d) { return d ? new Date(d).toLocaleDateString() : '—'; }
 
+const emptyForm = {
+  title: '',
+  description: '',
+  applicant: '',
+  respondent: '',
+  caseType: 'civil',
+  filedDate: new Date().toISOString().slice(0, 10),
+};
+
 export default function CitizenCases() {
   const toast = useToast();
+  const { user } = useAuth();
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [fileModal, setFileModal] = useState(false);
+  const [form, setForm] = useState(emptyForm);
+  const [saving, setSaving] = useState(false);
   const [detailModal, setDetailModal] = useState(false);
   const [selected, setSelected] = useState(null);
   const [hearings, setHearings] = useState([]);
@@ -21,13 +35,38 @@ export default function CitizenCases() {
     try {
       const data = await caseService.getAll({ limit: 50 });
       setCases(data.cases);
-    } catch (err) { toast?.show(err.message, 'error'); }
+    } catch (err) { toast.show(err.message, 'error'); }
     finally { setLoading(false); }
   }
 
   useEffect(() => {
     load();
   }, []);
+
+  function openFileModal() {
+    setForm({
+      ...emptyForm,
+      applicant: user && user.name ? user.name : '',
+      filedDate: new Date().toISOString().slice(0, 10),
+    });
+    setFileModal(true);
+  }
+
+  async function handleSubmit() {
+    if (!form.title || !form.description || !form.applicant || !form.respondent) {
+      toast.show('Please fill all required fields', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      await caseService.submit(form);
+      toast.show('Case submitted. A clerk will review and register it.', 'success');
+      setFileModal(false);
+      setForm(emptyForm);
+      load();
+    } catch (err) { toast.show(err.message, 'error'); }
+    finally { setSaving(false); }
+  }
 
   async function openDetail(c) {
     setSelected(c);
@@ -41,15 +80,19 @@ export default function CitizenCases() {
   return (
     <div>
       <div className="page-header">
-        <div><h1>My Cases</h1><p>Track the status of your legal cases</p></div>
+        <div>
+          <h1>My Cases</h1>
+          <p>File a new case or track status after clerk registration</p>
+        </div>
+        <button className="btn btn-primary" type="button" onClick={openFileModal}>+ File New Case</button>
       </div>
 
       {loading ? <LoadingSpinner /> : cases.length === 0 ? (
         <div className="card"><div className="card-body">
           <div className="empty-state">
             <div className="icon"><Icon name="folder" size={48} /></div>
-            <h3>No cases found</h3>
-            <p>Your cases will appear here once linked by the court administration.</p>
+            <h3>No cases yet</h3>
+            <p>Use <strong>File New Case</strong> to submit a dispute. Status will be <strong>Submitted</strong> until a clerk registers it.</p>
           </div>
         </div></div>
       ) : (
@@ -67,9 +110,10 @@ export default function CitizenCases() {
                     <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{c.title}</h3>
                     <div className="info-grid">
                       <div className="info-item"><label>Applicant</label><span>{c.applicant}</span></div>
-                      <div className="info-item"><label>Respondent</label><span>{c.respondent}</span></div>
+                      <div className="info-item"><label>Respondent (Defendant)</label><span>{c.respondent}</span></div>
                       <div className="info-item"><label>Filed Date</label><span>{formatDate(c.filedDate)}</span></div>
-                      <div className="info-item"><label>Your Lawyer</label><span>{c.lawyer?.name || '—'}</span></div>
+                      <div className="info-item"><label>Your Lawyer</label><span>{c.lawyer?.name || <em style={{ color: 'var(--gray-500)' }}>Not assigned yet — clerk assigns at registration</em>}</span></div>
+                      <div className="info-item"><label>Filed by</label><span style={{ textTransform: 'capitalize' }}>{c.submittedByRole === 'lawyer' ? 'Your lawyer' : 'You (self)'}</span></div>
                       <div className="info-item"><label>Assigned Judge</label><span>{c.judge?.name || 'Not yet assigned'}</span></div>
                     </div>
                   </div>
@@ -80,6 +124,46 @@ export default function CitizenCases() {
           ))}
         </div>
       )}
+
+      <Modal isOpen={fileModal} onClose={() => setFileModal(false)} title="File New Case" large
+        footer={<><button className="btn btn-secondary" onClick={() => setFileModal(false)}>Cancel</button><button className="btn btn-primary" onClick={handleSubmit} disabled={saving}>{saving ? 'Submitting…' : 'Submit Case'}</button></>}>
+        <p style={{ fontSize: 13, color: 'var(--gray-600)', marginBottom: 16 }}>
+          You are filing <strong>without a lawyer</strong> (self-represented). The clerk will register your case and can <strong>assign a lawyer</strong> at that step if you hire one later.
+          If a lawyer files for you, they must select your citizen account — the case will then appear here automatically.
+        </p>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Case Type *</label>
+            <select className="form-control" value={form.caseType} onChange={(e) => setForm({ ...form, caseType: e.target.value })}>
+              <option value="civil">Civil</option>
+              <option value="criminal">Criminal</option>
+              <option value="commercial">Commercial</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Filed Date *</label>
+            <input className="form-control" type="date" value={form.filedDate} onChange={(e) => setForm({ ...form, filedDate: e.target.value })} />
+          </div>
+        </div>
+        <div className="form-group">
+          <label className="form-label">Case Title *</label>
+          <input className="form-control" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Property ownership dispute" />
+        </div>
+        <div className="form-group">
+          <label className="form-label">Description *</label>
+          <textarea className="form-control" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Describe the dispute…" />
+        </div>
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Applicant (You) *</label>
+            <input className="form-control" value={form.applicant} onChange={(e) => setForm({ ...form, applicant: e.target.value })} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Respondent (Defendant) *</label>
+            <input className="form-control" value={form.respondent} onChange={(e) => setForm({ ...form, respondent: e.target.value })} placeholder="Ahmed" />
+          </div>
+        </div>
+      </Modal>
 
       <Modal isOpen={detailModal} onClose={() => setDetailModal(false)} title={`Case Timeline — ${selected?.caseNumber}`} large>
         {selected && (

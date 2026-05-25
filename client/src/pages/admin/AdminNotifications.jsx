@@ -33,7 +33,7 @@ export default function AdminNotifications() {
       const data = await notificationService.getAll({ page: pagination.page, limit: pagination.limit });
       setNotifications(data.notifications);
       setPagination((p) => ({ ...p, total: data.pagination.total }));
-    } catch (err) { toast?.show(err.message, 'error'); }
+    } catch (err) { toast.show(err.message, 'error'); }
     finally { setLoading(false); }
   }
 
@@ -42,13 +42,13 @@ export default function AdminNotifications() {
   }, [pagination.page]);
 
   async function handleMarkAll() {
-    try { await notificationService.markAllRead(); toast?.show('All marked as read', 'success'); load(); }
-    catch (err) { toast?.show(err.message, 'error'); }
+    try { await notificationService.markAllRead(); toast.show('All marked as read', 'success'); load(); }
+    catch (err) { toast.show(err.message, 'error'); }
   }
 
   async function handleDelete(id) {
     try { await notificationService.delete(id); load(); }
-    catch (err) { toast?.show(err.message, 'error'); }
+    catch (err) { toast.show(err.message, 'error'); }
   }
 
   return (

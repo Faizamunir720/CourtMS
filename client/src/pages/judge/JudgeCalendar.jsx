@@ -20,11 +20,17 @@ export default function JudgeCalendar() {
   const [selectedDay, setSelectedDay] = useState(null);
 
   useEffect(() => {
-    setLoading(true);
-    hearingService.getAll({ limit: 100 })
-      .then((d) => setHearings(d.hearings))
-      .catch((err) => toast?.show(err.message, 'error'))
-      .finally(() => setLoading(false));
+    async function loadHearings() {
+      setLoading(true);
+      try {
+        const d = await hearingService.getAll({ limit: 100 });
+        setHearings(d.hearings);
+      } catch (err) {
+        toast.show(err.message, 'error');
+      }
+      setLoading(false);
+    }
+    loadHearings();
   }, []);
 
   function prevMonth() {

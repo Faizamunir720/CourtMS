@@ -1,5 +1,6 @@
 import React from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
+import SidebarLink from '../components/SidebarLink';
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from '../components/NotificationBell';
 import { ToastProvider } from '../components/Toast';
@@ -27,18 +28,18 @@ export default function JudgeLayout() {
           </div>
           <nav className="sidebar-nav">
             {navItems.map((item) => (
-              <NavLink key={item.to} to={item.to} className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}>
+              <SidebarLink key={item.to} to={item.to}>
                 <span className="icon"><Icon name={item.icon} size={18} /></span>
                 {item.label}
-              </NavLink>
+              </SidebarLink>
             ))}
           </nav>
           <div className="sidebar-footer">
             <div className="sidebar-user">
-              <div className="sidebar-avatar">{user?.name?.[0]?.toUpperCase()}</div>
+              <div className="sidebar-avatar">{user && user.name ? user.name[0].toUpperCase() : ''}</div>
               <div className="sidebar-user-info">
-                <div className="sidebar-user-name">{user?.name}</div>
-                <div className="sidebar-user-role">{user?.role}</div>
+                <div className="sidebar-user-name">{user ? user.name : ''}</div>
+                <div className="sidebar-user-role">{user ? user.role : ''}</div>
               </div>
               <button className="logout-btn" title="Logout" onClick={handleLogout} type="button">
                 <Icon name="logout" size={18} />
